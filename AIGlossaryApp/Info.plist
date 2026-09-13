@@ -26,14 +26,18 @@
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>
         <false/>
-    </dict>
+    	<key>UIRequiresFullScreen</key>
+	<true/>
+</dict>
     <key>UILaunchScreen</key>
     <dict>
         <key>UIColorName</key>
         <string></string>
         <key>UIImageName</key>
         <string></string>
-    </dict>
+    	<key>UIRequiresFullScreen</key>
+	<true/>
+</dict>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
         <string>armv7</string>
@@ -44,5 +48,7 @@
     </array>
     <key>UIUserInterfaceStyle</key>
     <string>Light</string>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 </dict>
 </plist>
