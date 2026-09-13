@@ -39,6 +39,8 @@ targets:
         INFOPLIST_FILE: AIGlossaryApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: AIGlossaryApp/AIGlossaryApp.entitlements
         DEVELOPMENT_TEAM: 26RPYPPKBF
+        PROVISIONING_PROFILE_SPECIFIER: APP_PROFILE_UUID_PLACEHOLDER
+        CODE_SIGN_STYLE: Manual
     dependencies:
       - target: AIGlossaryWidget
         embed: true
@@ -57,6 +59,8 @@ targets:
         INFOPLIST_FILE: AIGlossaryWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: AIGlossaryWidget/AIGlossaryWidget.entitlements
         DEVELOPMENT_TEAM: 26RPYPPKBF
+        PROVISIONING_PROFILE_SPECIFIER: WIDGET_PROFILE_UUID_PLACEHOLDER
+        CODE_SIGN_STYLE: Manual
         SKIP_INSTALL: YES
 
 # MARK: - Schemes
