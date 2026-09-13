@@ -27,9 +27,13 @@ workflows:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
           cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
-          echo "=== Certificates ==="
-          security find-identity -v -p codesigning build.keychain
-          echo "=== Profiles ==="
+          echo "=== Decode App Profile ==="
+          security cms -D -i signing/AIWord_AppStore.mobileprovision > /tmp/app_profile.plist 2>&1 || true
+          plutil -p /tmp/app_profile.plist 2>&1 | grep -E "Name|UUID|TeamIdentifier|ApplicationIdentifierPrefix" | head -20 || true
+          echo "=== Decode Widget Profile ==="
+          security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision > /tmp/widget_profile.plist 2>&1 || true
+          plutil -p /tmp/widget_profile.plist 2>&1 | grep -E "Name|UUID|TeamIdentifier|ApplicationIdentifierPrefix" | head -20 || true
+          echo "=== Installed Profiles ==="
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
       - name: Build Archive
         script: |
@@ -41,7 +45,7 @@ workflows:
             -archivePath build/AIGlossaryApp.xcarchive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution" \
-            archive 2>&1 | tee build_archive.log | tail -80
+            archive 2>&1 | tee build_archive.log | tail -60
       - name: Export IPA
         script: |
           cat > export_options.plist << 'EOF'
@@ -51,20 +55,15 @@ workflows:
           <dict>
               <key>method</key><string>app-store</string>
               <key>signingStyle</key><string>manual</string>
-              <key>stripSwiftSymbols</key><true/>
           </dict>
           </plist>
           EOF
-          xcodebuild -exportArchive \
-            -archivePath build/AIGlossaryApp.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist export_options.plist 2>&1 | tee export_ipa.log | tail -80
+          xcodebuild -exportArchive -archivePath build/AIGlossaryApp.xcarchive -exportPath build/ios/ipa -exportOptionsPlist export_options.plist 2>&1 | tee export_ipa.log | tail -60
       - name: Upload to App Store Connect
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
           cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
-          echo "IPA: $IPA_PATH"
           xcrun altool --upload-app --file "$IPA_PATH" --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
           echo "Upload successful!"
     artifacts:
