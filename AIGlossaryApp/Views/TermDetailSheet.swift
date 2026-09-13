@@ -182,7 +182,7 @@ struct TermDetailSheet: View {
 // Helper: WrapHStack for tag layout
 struct WrapHStack<Data: RandomAccessCollection, Content: View>: View where Data.Element: Hashable {
     let items: Data
-    let content: (Data.Element) -> Content
+    @ViewBuilder let content: (Data.Element) -> Content
 
     var body: some View {
         FlexibleView(data: items, spacing: 6, alignment: .leading) { item in
@@ -195,7 +195,7 @@ struct FlexibleView<Data: RandomAccessCollection, Content: View>: View where Dat
     let data: Data
     let spacing: CGFloat
     let alignment: HorizontalAlignment
-    let content: (Data.Element) -> Content
+    @ViewBuilder let content: (Data.Element) -> Content
 
     @State private var totalHeight = CGFloat.zero
 
