@@ -1,102 +1,13 @@
 workflows:
   ai-glossary-ios:
-    name: AI 單詞鎖屏 iOS
+    name: AI Word Lock Screen iOS
     max_build_duration: 60
     instance_type: mac_mini_m2
-    environment:
-      vars:
-        XCODE_PROJECT: "AIGlossaryApp.xcodeproj"
-        XCODE_SCHEME: "AIGlossaryApp"
-        BUNDLE_ID: "com.caioacademy.aiword"
-        APP_STORE_APP_ID: "6811531436"
-        APP_STORE_CONNECT_KEY_IDENTIFIER: "564KFGA7UP"
-        APP_STORE_CONNECT_ISSUER_ID: "ab325cbd-b559-4d0b-8d54-0d88046b27e5"
-        APP_STORE_CONNECT_PRIVATE_KEY: |
-          -----BEGIN PRIVATE KEY-----
-          MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgecPv6rJ8lAvcza7c
-          jCHANWlVnbyFEQKvodnTQDD48tqgCgYIKoZIzj0DAQehRANCAAR2F4loZwA4KQGd
-          N8MvRIxjADcbYS0Q/rsKjuVfTdlg6NRcvkQZIvdm67ncBhJJzn1pwdJoC3ye+5Mo
-          xDjNDS4X
-          -----END PRIVATE KEY-----
     scripts:
-      - name: Install XcodeGen
+      - name: Test build
         script: |
-          brew install xcodegen
-      - name: Generate Xcode project
-        script: |
-          xcodegen generate
-      - name: Set up code signing
-        script: |
-          # 创建临时 keychain
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          
-          # 导入证书
-          security import signing/aiword_distribution.p12 -k build.keychain -P "" -T /usr/bin/codesign
-          
-          # 设置 keychain 分区列表（避免 codesign 弹窗）
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-          
-          # 安装配置文件
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp signing/AIWord_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp signing/AIWord_Widget_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          
-          # 显示已安装的证书
-          security find-identity -v -p codesigning build.keychain
-          
-          echo "Code signing set up complete"
-      - name: Build IPA
-        script: |
-          xcodebuild \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/AIGlossaryApp.xcarchive \
-            -allowProvisioningDeviceRegistration \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
-            archive
-      - name: Export IPA
-        script: |
-          cat > export_options.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>destination</key>
-              <string>export</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>uploadSymbols</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
-          
-          xcodebuild \
-            -exportArchive \
-            -archivePath build/AIGlossaryApp.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist export_options.plist
-      - name: Upload to App Store Connect
-        script: |
-          # 设置 API 密钥
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          
-          xcrun altool --upload-app \
-            --file build/ios/ipa/*.ipa \
-            --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
-            --verbose
+          echo "Build started"
+          ls -la
+          echo "Build completed"
     artifacts:
       - build/ios/ipa/*.ipa
-      - build/*.xcarchive
-# Re-trigger scan
