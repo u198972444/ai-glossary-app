@@ -1,7 +1,4 @@
 # XcodeGen 項目配置
-# 使用方式：安裝 XcodeGen (brew install xcodegen)，然後在項目目錄執行 `xcodegen generate`
-# 這會自動生成 AIGlossaryApp.xcodeproj
-
 name: AIGlossaryApp
 options:
   bundleIdPrefix: com.caioacademy
@@ -26,7 +23,6 @@ settings:
     DEVELOPMENT_TEAM: "26RPYPPKBF"
 
 targets:
-  # MARK: - 主 App
   AIGlossaryApp:
     type: application
     platform: iOS
@@ -39,15 +35,15 @@ targets:
         INFOPLIST_FILE: AIGlossaryApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: AIGlossaryApp/AIGlossaryApp.entitlements
         DEVELOPMENT_TEAM: 26RPYPPKBF
-        CODE_SIGN_IDENTITY: Apple Distribution
-        PROVISIONING_PROFILE_SPECIFIER: APP_PROFILE_UUID_PLACEHOLDER
-        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: Apple Distribution
     dependencies:
       - target: AIGlossaryWidget
         embed: true
       - sdk: StoreKit.framework
 
-  # MARK: - Widget Extension
   AIGlossaryWidget:
     type: app-extension
     platform: iOS
@@ -60,12 +56,12 @@ targets:
         INFOPLIST_FILE: AIGlossaryWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: AIGlossaryWidget/AIGlossaryWidget.entitlements
         DEVELOPMENT_TEAM: 26RPYPPKBF
-        CODE_SIGN_IDENTITY: Apple Distribution
-        PROVISIONING_PROFILE_SPECIFIER: WIDGET_PROFILE_UUID_PLACEHOLDER
-        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: Apple Distribution
 
-# MARK: - Schemes
 schemes:
   AIGlossaryApp:
     build:
