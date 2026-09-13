@@ -14,17 +14,16 @@ workflows:
       - name: Install XcodeGen
         script: |
           brew install xcodegen
-      - name: Set up API key and generate project
+      - name: Set up API key
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
           cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          xcodegen generate
-      - name: Import distribution certificate
+      - name: Import iOS Distribution certificate
         script: |
           keychain initialize
-          keychain add-certificates --certificate signing/aiword_distribution.p12 --certificate-password ""
+          keychain add-certificates --certificate signing/ios_distribution.p12 --certificate-password ""
           security find-identity -v -p codesigning
-      - name: Install provisioning profiles
+      - name: Install provisioning profiles and generate project
         script: |
           APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
           WIDGET_UUID=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
@@ -33,11 +32,10 @@ workflows:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${APP_UUID}.mobileprovision"
           cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${WIDGET_UUID}.mobileprovision"
-          # 替换 project.yml 中的占位符
           sed -i '' "s/APP_PROFILE_UUID_PLACEHOLDER/$APP_UUID/g" project.yml
           sed -i '' "s/WIDGET_PROFILE_UUID_PLACEHOLDER/$WIDGET_UUID/g" project.yml
           xcodegen generate
-      - name: Build Archive (manual signing)
+      - name: Build Archive
         script: |
           xcodebuild \
             -project "$XCODE_PROJECT" \
@@ -46,7 +44,6 @@ workflows:
             -destination 'generic/platform=iOS' \
             -archivePath build/AIGlossaryApp.xcarchive \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive 2>&1 | tee build_archive.log | tail -80
       - name: Export IPA
         script: |
@@ -68,8 +65,7 @@ workflows:
           xcodebuild -exportArchive \
             -archivePath build/AIGlossaryApp.xcarchive \
             -exportPath build/ios/ipa \
-            -exportOptionsPlist export_options.plist \
-            CODE_SIGN_IDENTITY="Apple Distribution" 2>&1 | tee export_ipa.log | tail -80
+            -exportOptionsPlist export_options.plist 2>&1 | tee export_ipa.log | tail -80
       - name: Upload to App Store Connect
         script: |
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
