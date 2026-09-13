@@ -18,12 +18,15 @@ workflows:
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
           cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-      - name: Import iOS Distribution certificate
+      - name: Import certificate and debug
         script: |
           keychain initialize
           keychain add-certificates --certificate signing/ios_distribution.p12 --certificate-password ""
+          echo "=== Keychain identities ==="
           security find-identity -v -p codesigning
-      - name: Install provisioning profiles and generate project
+          echo "=== All certificates ==="
+          security find-certificate -a -p | openssl x509 -noout -subject 2>/dev/null || true
+      - name: Install profiles and generate project
         script: |
           APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
           WIDGET_UUID=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
@@ -35,6 +38,8 @@ workflows:
           sed -i '' "s/APP_PROFILE_UUID_PLACEHOLDER/$APP_UUID/g" project.yml
           sed -i '' "s/WIDGET_PROFILE_UUID_PLACEHOLDER/$WIDGET_UUID/g" project.yml
           xcodegen generate
+          echo "=== Build settings ==="
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release -showBuildSettings | grep -E "CODE_SIGN|PROVISIONING|DEVELOPMENT_TEAM" | head -20
       - name: Build Archive
         script: |
           xcodebuild \
@@ -44,7 +49,7 @@ workflows:
             -destination 'generic/platform=iOS' \
             -archivePath build/AIGlossaryApp.xcarchive \
             CODE_SIGN_STYLE=Manual \
-            archive 2>&1 | tee build_archive.log | tail -80
+            archive 2>&1 | tee build_archive.log | tail -100
       - name: Export IPA
         script: |
           cat > export_options.plist << 'EOF'
