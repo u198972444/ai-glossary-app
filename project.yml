@@ -38,6 +38,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.caioacademy.aiword
         INFOPLIST_FILE: AIGlossaryApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: AIGlossaryApp/AIGlossaryApp.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: AIWord_AppStore
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: 26RPYPPKBF
     dependencies:
       - target: AIGlossaryWidget
         embed: true
@@ -55,6 +58,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.caioacademy.aiword.widget
         INFOPLIST_FILE: AIGlossaryWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: AIGlossaryWidget/AIGlossaryWidget.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: AIWord_Widget_AppStore
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: 26RPYPPKBF
         SKIP_INSTALL: YES
 
 # MARK: - Schemes
