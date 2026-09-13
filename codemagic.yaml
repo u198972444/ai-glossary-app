@@ -19,31 +19,34 @@ workflows:
           xcodegen generate
       - name: Set up keychain and import certificate
         script: |
-          # 创建 keychain
           keychain initialize
-          # 导入证书
           keychain add-certificates --certificate signing/aiword_distribution.p12 --certificate-password ""
-          # 列出证书
           security find-identity -v -p codesigning
       - name: Install profiles
         script: |
-          # 安装配置文件
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
           cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
-          # 列出配置文件
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
-          # 解码配置文件
-          echo "=== App Profile ==="
-          security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -p - | grep -E "Name|UUID|TeamIdentifier|Entitlements" | head -20
-          echo "=== Widget Profile ==="
-          security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -p - | grep -E "Name|UUID|TeamIdentifier|Entitlements" | head -20
-      - name: Build IPA with xcode-project
+      - name: Create export options
+        script: |
+          cat > export_options.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key><string>app-store</string>
+              <key>signingStyle</key><string>manual</string>
+          </dict>
+          </plist>
+          EOF
+      - name: Build IPA
         script: |
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
-            --archive-xcargs "CODE_SIGN_STYLE=Manual" 2>&1 | tee build_ipa.log | tail -100
+            --archive-xcargs "CODE_SIGN_STYLE=Manual" \
+            --export-options-plist export_options.plist 2>&1 | tee build_ipa.log | tail -100
       - name: Upload to App Store Connect
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
