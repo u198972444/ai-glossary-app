@@ -8,12 +8,9 @@
 import Foundation
 
 public enum AppGroup {
-    /// App Group ID — 需在 Xcode Signing & Capabilities 中配置
-    public static let groupID = "group.com.aiglossary.app"
-
-    /// UserDefaults 共享實例
+    /// UserDefaults 實例（使用標準 UserDefaults，無需 App Group）
     public static var defaults: UserDefaults {
-        UserDefaults(suiteName: groupID) ?? .standard
+        .standard
     }
 
     // MARK: - Keys
