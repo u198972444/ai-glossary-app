@@ -7,7 +7,6 @@ workflows:
       vars:
         XCODE_PROJECT: "AIGlossaryApp.xcodeproj"
         XCODE_SCHEME: "AIGlossaryApp"
-        BUNDLE_ID: "com.caioacademy.aiword"
         APP_STORE_CONNECT_KEY_IDENTIFIER: "564KFGA7UP"
         APP_STORE_CONNECT_ISSUER_ID: "ab325cbd-b559-4d0b-8d54-0d88046b27e5"
       xcode: latest
@@ -20,26 +19,46 @@ workflows:
           xcodegen generate
       - name: Import code signing
         script: |
-          # 创建临时 keychain
           security create-keychain -p "" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "" build.keychain
-          # 导入证书
           security import signing/aiword_distribution.p12 -k build.keychain -P "" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-          # 安装配置文件
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp signing/AIWord_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp signing/AIWord_Widget_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          # 验证
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          echo "=== Certificates ==="
           security find-identity -v -p codesigning build.keychain
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
-      - name: Build IPA
+          echo "=== Profiles ==="
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
+      - name: Build Archive
         script: |
-          xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME" \
-            --archive-xcargs "CODE_SIGNING_STYLE=MANUAL"
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/AIGlossaryApp.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            archive 2>&1 | tee build_archive.log | tail -80
+      - name: Export IPA
+        script: |
+          cat > export_options.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key><string>app-store</string>
+              <key>signingStyle</key><string>manual</string>
+              <key>stripSwiftSymbols</key><true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/AIGlossaryApp.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist export_options.plist 2>&1 | tee export_ipa.log | tail -80
       - name: Upload to App Store Connect
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
@@ -50,4 +69,5 @@ workflows:
           echo "Upload successful!"
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
+      - build_archive.log
+      - export_ipa.log
