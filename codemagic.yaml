@@ -1,0 +1,49 @@
+workflows:
+  ai-glossary-ios:
+    name: AI 單詞鎖屏 iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - app_store_credentials
+      vars:
+        XCODE_PROJECT: "AIGlossaryApp.xcodeproj"
+        XCODE_SCHEME: "AIGlossaryApp"
+        BUNDLE_ID: "com.caioacademy.aiword"
+        APP_STORE_APP_ID: "6811531436"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.caioacademy.aiword
+    scripts:
+      - name: Install XcodeGen
+        script: |
+          brew install xcodegen
+      - name: Generate Xcode project
+        script: |
+          cd AIGlossaryApp
+          xcodegen generate
+      - name: Set up code signing settings on Xcode project
+        script: |
+          cd AIGlossaryApp
+          xcode-project use-profiles --project "$XCODE_PROJECT"
+      - name: Increment build number
+        script: |
+          cd AIGlossaryApp
+          agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID") + 1))
+        ignore_failure: true
+      - name: Build IPA
+        script: |
+          cd AIGlossaryApp
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
