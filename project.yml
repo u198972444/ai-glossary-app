@@ -24,10 +24,6 @@ settings:
     INFOPLIST_KEY_CFBundleDisplayName: AI 單詞鎖屏
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: "26RPYPPKBF"
-  configs:
-    Release:
-      CODE_SIGN_IDENTITY: "Apple Distribution"
-      CODE_SIGN_STYLE: Automatic
 
 targets:
   # MARK: - 主 App
