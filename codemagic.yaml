@@ -22,10 +22,11 @@ workflows:
         script: |
           keychain initialize
           keychain add-certificates --certificate signing/ios_distribution.p12 --certificate-password ""
-          echo "=== Keychain identities ==="
-          security find-identity -v -p codesigning
-          echo "=== All certificates ==="
-          security find-certificate -a -p | openssl x509 -noout -subject 2>/dev/null || true
+          echo "=== Keychain identities ===" > debug.log
+          security find-identity -v -p codesigning >> debug.log 2>&1
+          echo "=== Certificate details ===" >> debug.log
+          security find-certificate -a -p >> debug.log 2>&1
+          cat debug.log
       - name: Install profiles and generate project
         script: |
           APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
@@ -38,8 +39,8 @@ workflows:
           sed -i '' "s/APP_PROFILE_UUID_PLACEHOLDER/$APP_UUID/g" project.yml
           sed -i '' "s/WIDGET_PROFILE_UUID_PLACEHOLDER/$WIDGET_UUID/g" project.yml
           xcodegen generate
-          echo "=== Build settings ==="
-          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release -showBuildSettings | grep -E "CODE_SIGN|PROVISIONING|DEVELOPMENT_TEAM" | head -20
+          echo "=== Build settings ===" >> debug.log
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release -showBuildSettings | grep -E "CODE_SIGN|PROVISIONING|DEVELOPMENT_TEAM" >> debug.log 2>&1
       - name: Build Archive
         script: |
           xcodebuild \
@@ -80,3 +81,4 @@ workflows:
       - build/ios/ipa/*.ipa
       - build_archive.log
       - export_ipa.log
+      - debug.log
