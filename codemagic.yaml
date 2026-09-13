@@ -18,16 +18,20 @@ workflows:
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
           cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-      - name: Import certificate
+      - name: Import certificate (detailed)
         script: |
-          security create-keychain -p "codemagic123" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "codemagic123" build.keychain
-          security set-keychain-settings -t 3600 -l ~/Library/Keychains/build.keychain
-          security import signing/ios_distribution_pwd.p12 -k build.keychain -P "codemagic123" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "codemagic123" build.keychain
-          echo "=== Keychain identities ===" > debug.log
+          # 使用 Codemagic 的 keychain 工具
+          keychain initialize
+          keychain add-certificates --certificate signing/ios_distribution_pwd.p12 --certificate-password "codemagic123"
+          
+          echo "=== After import ===" > debug.log
+          security list-keychains >> debug.log 2>&1
+          echo "=== Identities ===" >> debug.log
           security find-identity -v -p codesigning >> debug.log 2>&1
+          echo "=== All certs ===" >> debug.log
+          security find-certificate -a -c "iPhone" >> debug.log 2>&1
+          security find-certificate -a -c "iOS" >> debug.log 2>&1
+          security find-certificate -a -c "CAIO" >> debug.log 2>&1
           cat debug.log
       - name: Install profiles and generate project
         script: |
