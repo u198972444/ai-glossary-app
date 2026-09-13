@@ -14,64 +14,36 @@ workflows:
       - name: Install XcodeGen
         script: |
           brew install xcodegen
-      - name: Import code signing and generate project
+      - name: Generate Xcode project
+        script: |
+          xcodegen generate
+      - name: Set up keychain and import certificate
         script: |
           # 创建 keychain
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
+          keychain initialize
           # 导入证书
-          security import signing/aiword_distribution.p12 -k build.keychain -P "" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-          # 解码配置文件获取 UUID
-          APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
-          WIDGET_UUID=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
-          echo "App UUID: $APP_UUID"
-          echo "Widget UUID: $WIDGET_UUID"
-          # 安装配置文件（用 UUID 命名）
+          keychain add-certificates --certificate signing/aiword_distribution.p12 --certificate-password ""
+          # 列出证书
+          security find-identity -v -p codesigning
+      - name: Install profiles
+        script: |
+          # 安装配置文件
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${APP_UUID}.mobileprovision"
-          cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${WIDGET_UUID}.mobileprovision"
-          # 替换 project.yml 中的占位符
-          sed -i '' "s/APP_PROFILE_UUID_PLACEHOLDER/$APP_UUID/g" project.yml
-          sed -i '' "s/WIDGET_PROFILE_UUID_PLACEHOLDER/$WIDGET_UUID/g" project.yml
-          # 生成 Xcode 项目
-          xcodegen generate
-          # 验证
-          security find-identity -v -p codesigning build.keychain
-      - name: Build Archive
+          cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          # 列出配置文件
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          # 解码配置文件
+          echo "=== App Profile ==="
+          security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -p - | grep -E "Name|UUID|TeamIdentifier|Entitlements" | head -20
+          echo "=== Widget Profile ==="
+          security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -p - | grep -E "Name|UUID|TeamIdentifier|Entitlements" | head -20
+      - name: Build IPA with xcode-project
         script: |
-          xcodebuild \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/AIGlossaryApp.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            archive 2>&1 | tee build_archive.log | tail -80
-      - name: Export IPA
-        script: |
-          APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
-          WIDGET_UUID=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
-          cat > export_options.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key><string>app-store</string>
-              <key>signingStyle</key><string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.caioacademy.aiword</key><string>$APP_UUID</string>
-                  <key>com.caioacademy.aiword.widget</key><string>$WIDGET_UUID</string>
-              </dict>
-          </dict>
-          </plist>
-          EOF
-          xcodebuild -exportArchive \
-            -archivePath build/AIGlossaryApp.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist export_options.plist 2>&1 | tee export_ipa.log | tail -80
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --archive-xcargs "CODE_SIGN_STYLE=Manual" 2>&1 | tee build_ipa.log | tail -100
       - name: Upload to App Store Connect
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
@@ -81,5 +53,5 @@ workflows:
           echo "Upload successful!"
     artifacts:
       - build/ios/ipa/*.ipa
-      - build_archive.log
-      - export_ipa.log
+      - build_ipa.log
+      - /tmp/xcodebuild_logs/*.log
