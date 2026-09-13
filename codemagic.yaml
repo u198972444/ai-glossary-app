@@ -34,7 +34,6 @@ workflows:
           sed -i '' "s/APP_PROFILE_UUID_PLACEHOLDER/$APP_UUID/g" project.yml
           sed -i '' "s/WIDGET_PROFILE_UUID_PLACEHOLDER/$WIDGET_UUID/g" project.yml
           xcodegen generate
-          # 保存 UUID 供后续步骤使用
           echo "APP_UUID=$APP_UUID" > /tmp/profile_uuids.sh
           echo "WIDGET_UUID=$WIDGET_UUID" >> /tmp/profile_uuids.sh
       - name: Build Archive
@@ -65,7 +64,6 @@ workflows:
           </dict>
           </plist>
           EOF
-          cat export_options.plist
           xcodebuild -exportArchive \
             -archivePath build/AIGlossaryApp.xcarchive \
             -exportPath build/ios/ipa \
@@ -73,10 +71,16 @@ workflows:
       - name: Upload to App Store Connect
         script: |
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
-          xcrun altool --upload-app --file "$IPA_PATH" --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
-          echo "Upload successful!"
+          echo "Uploading $IPA_PATH..."
+          xcrun altool --upload-app --file "$IPA_PATH" --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" 2>&1 | tee upload.log
+          echo "Upload exit code: $?"
+          cat upload.log
     artifacts:
       - build/ios/ipa/*.ipa
       - build_archive.log
       - export_ipa.log
-      - debug.log
+      - upload.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
