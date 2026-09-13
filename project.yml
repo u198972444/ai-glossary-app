@@ -37,7 +37,7 @@ targets:
       configs:
         Release:
           CODE_SIGN_STYLE: Manual
-          CODE_SIGN_IDENTITY: iPhone Distribution
+          CODE_SIGN_IDENTITY: 2D908B2A8FCDE7E0BA8CD1A5883A0D3DB9D66C38
           PROVISIONING_PROFILE_SPECIFIER: APP_PROFILE_UUID_PLACEHOLDER
     dependencies:
       - target: AIGlossaryWidget
@@ -60,7 +60,7 @@ targets:
       configs:
         Release:
           CODE_SIGN_STYLE: Manual
-          CODE_SIGN_IDENTITY: iPhone Distribution
+          CODE_SIGN_IDENTITY: 2D908B2A8FCDE7E0BA8CD1A5883A0D3DB9D66C38
           PROVISIONING_PROFILE_SPECIFIER: WIDGET_PROFILE_UUID_PLACEHOLDER
 
 schemes:
