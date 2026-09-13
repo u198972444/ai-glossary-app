@@ -34,6 +34,9 @@ workflows:
           sed -i '' "s/APP_PROFILE_UUID_PLACEHOLDER/$APP_UUID/g" project.yml
           sed -i '' "s/WIDGET_PROFILE_UUID_PLACEHOLDER/$WIDGET_UUID/g" project.yml
           xcodegen generate
+          # 保存 UUID 供后续步骤使用
+          echo "APP_UUID=$APP_UUID" > /tmp/profile_uuids.sh
+          echo "WIDGET_UUID=$WIDGET_UUID" >> /tmp/profile_uuids.sh
       - name: Build Archive
         script: |
           xcodebuild \
@@ -46,16 +49,23 @@ workflows:
             archive 2>&1 | tee build_archive.log | tail -50
       - name: Export IPA
         script: |
-          cat > export_options.plist << 'EOF'
+          source /tmp/profile_uuids.sh
+          cat > export_options.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key><string>app-store</string>
               <key>signingStyle</key><string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.caioacademy.aiword</key><string>$APP_UUID</string>
+                  <key>com.caioacademy.aiword.widget</key><string>$WIDGET_UUID</string>
+              </dict>
           </dict>
           </plist>
           EOF
+          cat export_options.plist
           xcodebuild -exportArchive \
             -archivePath build/AIGlossaryApp.xcarchive \
             -exportPath build/ios/ipa \
