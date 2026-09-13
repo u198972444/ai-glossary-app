@@ -27,26 +27,21 @@ workflows:
           brew install xcodegen
       - name: Generate Xcode project
         script: |
-          cd AIGlossaryApp
           xcodegen generate
       - name: Set up code signing settings on Xcode project
         script: |
-          cd AIGlossaryApp
           xcode-project use-profiles --project "$XCODE_PROJECT"
       - name: Increment build number
         script: |
-          cd AIGlossaryApp
           agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID") + 1))
         ignore_failure: true
       - name: Build IPA
         script: |
-          cd AIGlossaryApp
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
       - name: Upload to App Store Connect
         script: |
-          cd AIGlossaryApp
           echo "$APP_STORE_CONNECT_PRIVATE_KEY" > /tmp/AuthKey.p8
           xcrun altool --upload-app \
             --file build/ios/ipa/*.ipa \
