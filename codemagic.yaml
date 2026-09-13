@@ -18,21 +18,10 @@ workflows:
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
           cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-      - name: Import certificate (detailed)
+      - name: Import certificate
         script: |
-          # 使用 Codemagic 的 keychain 工具
           keychain initialize
           keychain add-certificates --certificate signing/ios_distribution_pwd.p12 --certificate-password "codemagic123"
-          
-          echo "=== After import ===" > debug.log
-          security list-keychains >> debug.log 2>&1
-          echo "=== Identities ===" >> debug.log
-          security find-identity -v -p codesigning >> debug.log 2>&1
-          echo "=== All certs ===" >> debug.log
-          security find-certificate -a -c "iPhone" >> debug.log 2>&1
-          security find-certificate -a -c "iOS" >> debug.log 2>&1
-          security find-certificate -a -c "CAIO" >> debug.log 2>&1
-          cat debug.log
       - name: Install profiles and generate project
         script: |
           APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
@@ -54,7 +43,7 @@ workflows:
             -destination 'generic/platform=iOS' \
             -archivePath build/AIGlossaryApp.xcarchive \
             CODE_SIGN_STYLE=Manual \
-            archive 2>&1 | tee build_archive.log | tail -100
+            archive 2>&1 | tee build_archive.log | tail -50
       - name: Export IPA
         script: |
           cat > export_options.plist << 'EOF'
@@ -64,18 +53,13 @@ workflows:
           <dict>
               <key>method</key><string>app-store</string>
               <key>signingStyle</key><string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.caioacademy.aiword</key><string>AIWord_AppStore</string>
-                  <key>com.caioacademy.aiword.widget</key><string>AIWord_Widget_AppStore</string>
-              </dict>
           </dict>
           </plist>
           EOF
           xcodebuild -exportArchive \
             -archivePath build/AIGlossaryApp.xcarchive \
             -exportPath build/ios/ipa \
-            -exportOptionsPlist export_options.plist 2>&1 | tee export_ipa.log | tail -80
+            -exportOptionsPlist export_options.plist 2>&1 | tee export_ipa.log | tail -50
       - name: Upload to App Store Connect
         script: |
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
