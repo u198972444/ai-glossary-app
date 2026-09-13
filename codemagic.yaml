@@ -4,9 +4,6 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.caioacademy.aiword
       vars:
         XCODE_PROJECT: "AIGlossaryApp.xcodeproj"
         XCODE_SCHEME: "AIGlossaryApp"
@@ -14,7 +11,6 @@ workflows:
         APP_STORE_CONNECT_KEY_IDENTIFIER: "564KFGA7UP"
         APP_STORE_CONNECT_ISSUER_ID: "ab325cbd-b559-4d0b-8d54-0d88046b27e5"
       xcode: latest
-      cocoapods: default
     scripts:
       - name: Install XcodeGen
         script: |
@@ -22,9 +18,22 @@ workflows:
       - name: Generate Xcode project
         script: |
           xcodegen generate
-      - name: Set up code signing
+      - name: Import code signing
         script: |
-          xcode-project use-profiles
+          # 创建临时 keychain
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          # 导入证书
+          security import signing/aiword_distribution.p12 -k build.keychain -P "" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          # 安装配置文件
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp signing/AIWord_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp signing/AIWord_Widget_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          # 验证
+          security find-identity -v -p codesigning build.keychain
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Build IPA
         script: |
           xcode-project build-ipa \
@@ -33,26 +42,11 @@ workflows:
             --archive-xcargs "CODE_SIGNING_STYLE=MANUAL"
       - name: Upload to App Store Connect
         script: |
-          echo "Setting up App Store Connect key..."
           mkdir -p ~/.appstoreconnect/private_keys
-          
-          KEY_ID="$APP_STORE_CONNECT_KEY_IDENTIFIER"
-          ISSUER_ID="$APP_STORE_CONNECT_ISSUER_ID"
-          
-          echo "Using Key ID: $KEY_ID"
-          echo "Using Issuer ID: $ISSUER_ID"
-          
-          cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
-          echo "Private key installed"
-          
+          cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
-          echo "IPA found: $IPA_PATH"
-          
-          xcrun altool --upload-app \
-            --file "$IPA_PATH" \
-            --apiKey "$KEY_ID" \
-            --apiIssuer "$ISSUER_ID"
-          
+          echo "IPA: $IPA_PATH"
+          xcrun altool --upload-app --file "$IPA_PATH" --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
           echo "Upload successful!"
     artifacts:
       - build/ios/ipa/*.ipa
