@@ -25,12 +25,29 @@ workflows:
       - name: Generate Xcode project
         script: |
           xcodegen generate
-      - name: Set up App Store Connect API key
+      - name: Set up code signing
         script: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          echo "API key set up"
-      - name: Build IPA with automatic signing
+          # 创建临时 keychain
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          
+          # 导入证书
+          security import signing/aiword_distribution.p12 -k build.keychain -P "" -T /usr/bin/codesign
+          
+          # 设置 keychain 分区列表（避免 codesign 弹窗）
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          
+          # 安装配置文件
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp signing/AIWord_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp signing/AIWord_Widget_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          
+          # 显示已安装的证书
+          security find-identity -v -p codesigning build.keychain
+          
+          echo "Code signing set up complete"
+      - name: Build IPA
         script: |
           xcodebuild \
             -project "$XCODE_PROJECT" \
@@ -38,10 +55,9 @@ workflows:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/AIGlossaryApp.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            -allowProvisioningDeviceRegistration \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
             archive
       - name: Export IPA
         script: |
@@ -55,7 +71,7 @@ workflows:
               <key>destination</key>
               <string>export</string>
               <key>signingStyle</key>
-              <string>automatic</string>
+              <string>manual</string>
               <key>stripSwiftSymbols</key>
               <true/>
               <key>uploadSymbols</key>
@@ -68,13 +84,13 @@ workflows:
             -exportArchive \
             -archivePath build/AIGlossaryApp.xcarchive \
             -exportPath build/ios/ipa \
-            -exportOptionsPlist export_options.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+            -exportOptionsPlist export_options.plist
       - name: Upload to App Store Connect
         script: |
+          # 设置 API 密钥
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          
           xcrun altool --upload-app \
             --file build/ios/ipa/*.ipa \
             --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
