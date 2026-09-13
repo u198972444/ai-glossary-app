@@ -74,13 +74,8 @@ workflows:
           echo "Uploading $IPA_PATH..."
           xcrun altool --upload-app --file "$IPA_PATH" --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" 2>&1 | tee upload.log
           echo "Upload exit code: $?"
-          cat upload.log
     artifacts:
       - build/ios/ipa/*.ipa
       - build_archive.log
       - export_ipa.log
       - upload.log
-    publishing:
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
