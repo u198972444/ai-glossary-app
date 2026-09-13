@@ -20,35 +20,17 @@ workflows:
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
           cp AuthKey.p8 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-      - name: Build IPA
+      - name: Build IPA (using xcode-project CLI)
         script: |
-          xcodebuild \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/AIGlossaryApp.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
-            archive
-      - name: Export IPA
-        script: |
-          # 先查看 archive 里的签名信息
-          codesign -d --entitlements :- build/AIGlossaryApp.xcarchive/Products/Applications/*.app 2>&1 | head -20
-          # 用最简单的导出选项
-          xcodebuild -exportArchive \
-            -archivePath build/AIGlossaryApp.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist <(echo '<?xml version="1.0"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>method</key><string>app-store</string></dict></plist>') \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" 2>&1 | tee export.log | tail -60
+          xcode-project use-profiles \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --archive-xcargs "-allowProvisioningUpdates -authenticationKeyPath $HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID"
       - name: Upload to App Store Connect
         script: |
           xcrun altool --upload-app --file build/ios/ipa/*.ipa --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
     artifacts:
       - build/ios/ipa/*.ipa
-      - export.log
