@@ -99,3 +99,4 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - build/*.xcarchive
+# Re-trigger scan
