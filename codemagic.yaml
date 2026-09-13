@@ -18,9 +18,6 @@ workflows:
           N8MvRIxjADcbYS0Q/rsKjuVfTdlg6NRcvkQZIvdm67ncBhJJzn1pwdJoC3ye+5Mo
           xDjNDS4X
           -----END PRIVATE KEY-----
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.caioacademy.aiword
     scripts:
       - name: Install XcodeGen
         script: |
@@ -28,21 +25,56 @@ workflows:
       - name: Generate Xcode project
         script: |
           xcodegen generate
-      - name: Set up code signing settings on Xcode project
+      - name: Set up App Store Connect API key
         script: |
-          xcode-project use-profiles --project "$XCODE_PROJECT"
-      - name: Increment build number
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          echo "API key set up"
+      - name: Build IPA with automatic signing
         script: |
-          agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID") + 1))
-        ignore_failure: true
-      - name: Build IPA
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/AIGlossaryApp.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            archive
+      - name: Export IPA
         script: |
-          xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME"
+          cat > export_options.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>destination</key>
+              <string>export</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/AIGlossaryApp.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist export_options.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
       - name: Upload to App Store Connect
         script: |
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > /tmp/AuthKey.p8
           xcrun altool --upload-app \
             --file build/ios/ipa/*.ipa \
             --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
@@ -50,6 +82,4 @@ workflows:
             --verbose
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+      - build/*.xcarchive
