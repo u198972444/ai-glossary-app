@@ -36,9 +36,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: AIGlossaryApp/AIGlossaryApp.entitlements
         DEVELOPMENT_TEAM: 26RPYPPKBF
         CODE_SIGN_STYLE: Automatic
-      configs:
-        Release:
-          CODE_SIGN_IDENTITY: Apple Distribution
     dependencies:
       - target: AIGlossaryWidget
         embed: true
@@ -58,9 +55,6 @@ targets:
         DEVELOPMENT_TEAM: 26RPYPPKBF
         CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES
-      configs:
-        Release:
-          CODE_SIGN_IDENTITY: Apple Distribution
 
 schemes:
   AIGlossaryApp:
