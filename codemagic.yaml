@@ -55,7 +55,7 @@ workflows:
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
-            --archive-xcargs "CODE_SIGN_STYLE=Manual" \
+            --archive-xcargs "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=Apple Distribution" \
             --export-options-plist export_options.plist 2>&1 | tee build_ipa.log | tail -100
       - name: Upload to App Store Connect
         script: |
