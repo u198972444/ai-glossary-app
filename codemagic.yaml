@@ -16,21 +16,6 @@ workflows:
       - name: Generate Xcode project
         script: |
           xcodegen generate
-      - name: Set up code signing
-        script: |
-          # 创建临时 keychain
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          # 导入证书
-          security import signing/aiword_distribution.p12 -k build.keychain -P "" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-          # 安装配置文件
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp signing/AIWord_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp signing/AIWord_Widget_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          # 显示证书
-          security find-identity -v -p codesigning build.keychain
       - name: Set up API key
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
@@ -43,26 +28,24 @@ workflows:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/AIGlossaryApp.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             archive
       - name: Export IPA
         script: |
-          cat > export_options.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key><string>app-store</string>
-              <key>signingStyle</key><string>manual</string>
-              <key>stripSwiftSymbols</key><true/>
-          </dict>
-          </plist>
-          EOF
+          # 先查看 archive 里的签名信息
+          codesign -d --entitlements :- build/AIGlossaryApp.xcarchive/Products/Applications/*.app 2>&1 | head -20
+          # 用最简单的导出选项
           xcodebuild -exportArchive \
             -archivePath build/AIGlossaryApp.xcarchive \
             -exportPath build/ios/ipa \
-            -exportOptionsPlist export_options.plist 2>&1 | tee export.log | tail -80
+            -exportOptionsPlist <(echo '<?xml version="1.0"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>method</key><string>app-store</string></dict></plist>') \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" 2>&1 | tee export.log | tail -60
       - name: Upload to App Store Connect
         script: |
           xcrun altool --upload-app --file build/ios/ipa/*.ipa --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
