@@ -14,10 +14,7 @@ workflows:
       - name: Install XcodeGen
         script: |
           brew install xcodegen
-      - name: Generate Xcode project
-        script: |
-          xcodegen generate
-      - name: Import code signing
+      - name: Import code signing and generate project
         script: |
           # 创建 keychain
           security create-keychain -p "" build.keychain
@@ -27,24 +24,23 @@ workflows:
           security import signing/aiword_distribution.p12 -k build.keychain -P "" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
           # 解码配置文件获取 UUID
-          APP_PROFILE_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
-          WIDGET_PROFILE_UUID=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
-          APP_PROFILE_NAME=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract Name raw -o - -)
-          WIDGET_PROFILE_NAME=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract Name raw -o - -)
-          echo "App Profile: $APP_PROFILE_NAME (UUID: $APP_PROFILE_UUID)"
-          echo "Widget Profile: $WIDGET_PROFILE_NAME (UUID: $WIDGET_PROFILE_UUID)"
+          APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
+          WIDGET_UUID=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
+          echo "App UUID: $APP_UUID"
+          echo "Widget UUID: $WIDGET_UUID"
           # 安装配置文件（用 UUID 命名）
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${APP_PROFILE_UUID}.mobileprovision"
-          cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${WIDGET_PROFILE_UUID}.mobileprovision"
-          # 导出环境变量
-          echo "export APP_PROFILE_UUID=$APP_PROFILE_UUID" >> /tmp/profile_env.sh
-          echo "export WIDGET_PROFILE_UUID=$WIDGET_PROFILE_UUID" >> /tmp/profile_env.sh
-          # 验证证书
+          cp signing/AIWord_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${APP_UUID}.mobileprovision"
+          cp signing/AIWord_Widget_AppStore.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${WIDGET_UUID}.mobileprovision"
+          # 替换 project.yml 中的占位符
+          sed -i '' "s/APP_PROFILE_UUID_PLACEHOLDER/$APP_UUID/g" project.yml
+          sed -i '' "s/WIDGET_PROFILE_UUID_PLACEHOLDER/$WIDGET_UUID/g" project.yml
+          # 生成 Xcode 项目
+          xcodegen generate
+          # 验证
           security find-identity -v -p codesigning build.keychain
       - name: Build Archive
         script: |
-          source /tmp/profile_env.sh
           xcodebuild \
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
@@ -53,12 +49,11 @@ workflows:
             -archivePath build/AIGlossaryApp.xcarchive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER_APP="$APP_PROFILE_UUID" \
-            PROVISIONING_PROFILE_SPECIFIER_WIDGET="$WIDGET_PROFILE_UUID" \
             archive 2>&1 | tee build_archive.log | tail -80
       - name: Export IPA
         script: |
-          source /tmp/profile_env.sh
+          APP_UUID=$(security cms -D -i signing/AIWord_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
+          WIDGET_UUID=$(security cms -D -i signing/AIWord_Widget_AppStore.mobileprovision 2>/dev/null | plutil -extract UUID raw -o - -)
           cat > export_options.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -68,8 +63,8 @@ workflows:
               <key>signingStyle</key><string>manual</string>
               <key>provisioningProfiles</key>
               <dict>
-                  <key>com.caioacademy.aiword</key><string>$APP_PROFILE_UUID</string>
-                  <key>com.caioacademy.aiword.widget</key><string>$WIDGET_PROFILE_UUID</string>
+                  <key>com.caioacademy.aiword</key><string>$APP_UUID</string>
+                  <key>com.caioacademy.aiword.widget</key><string>$WIDGET_UUID</string>
               </dict>
           </dict>
           </plist>
